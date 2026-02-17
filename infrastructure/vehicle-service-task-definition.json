@@ -39,7 +39,7 @@
         "secrets": [
           {
             "name": "DB_PASSWORD",
-            "valueFrom": "arn:aws:secretsmanager:us-east-1:442426892384:secret:DB_PASSWORD-1yQbvr"
+            "valueFrom": "arn:aws:secretsmanager:us-east-1:442426892384:secret:DB_PASSWORD-1yQbvr:password::"
           },
           {
             "name": "JWT_SECRET",
