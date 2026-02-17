@@ -27,8 +27,10 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: 'Algo deu errado!' });
 });
 
-app.listen(PORT, () => {
-  console.log(`User Service rodando na porta ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`User Service rodando na porta ${PORT}`);
+  });
+}
 
 module.exports = app;
