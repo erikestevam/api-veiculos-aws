@@ -47,12 +47,12 @@
           }
         ],
         "logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "/ecs/vehicle-service",
-            "awslogs-region": "us-east-1",
-            "awslogs-stream-prefix": "ecs"
-          }
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-group": "/ecs/vehicle-service-task",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "ecs"
+            }
         }
       }
     ]
