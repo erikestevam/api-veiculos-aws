@@ -1,0 +1,2038 @@
+{
+  "info": {
+    "_postman_id": "dc8f074d-fd81-4492-81b1-69b3064e6e83",
+    "name": "AWS",
+    "description": "# 🚗 API de Veículos — Microsserviços na AWS\n\n> Projeto desenvolvido para a disciplina **Tópicos Especiais em Redes — 2025/2**  \n> Universidade Federal do Espírito Santo — Campus Alegre/ES  \n> **Autores:** Artur Matos Siqueira e Erik Estevam\n\n---\n\n## 📋 Sobre o Projeto\n\nAPI REST para gerenciamento de veículos, construída com arquitetura de microsserviços e implantada na AWS. O sistema é composto por três serviços independentes que se comunicam por meio de um Application Load Balancer, com pipeline de CI/CD automatizado via GitHub Actions e deploy Blue/Green sem downtime.\n\n---\n\n## 🏗️ Arquitetura\n\n```\n                        ┌─────────────────────────────────┐\n                        │   Application Load Balancer      │\n                        │   (Path-based routing)           │\n                        └────────┬──────────┬─────────┬───┘\n                                 │          │         │\n                    /api/auth    │ /api/users│  /api/vehicles\n                                 ▼          ▼         ▼\n                          ┌──────────┐ ┌─────────┐ ┌──────────┐\n                          │  Auth    │ │  User   │ │ Vehicle  │\n                          │ Service  │ │ Service │ │ Service  │\n                          │  :3001   │ │  :3002  │ │  :3003   │\n                          └────┬─────┘ └────┬────┘ └────┬─────┘\n                               └────────────┴────────────┘\n                                            │\n                                    ┌───────▼───────┐\n                                    │  AWS RDS      │\n                                    │  MySQL        │\n                                    └───────────────┘\n```\n\n---\n\n## 🛠️ Tecnologias\n\n| Componente       | Tecnologia                        |\n|------------------|-----------------------------------|\n| Backend          | Node.js + Express                 |\n| Banco de Dados   | MySQL — AWS RDS                   |\n| Containers       | Docker + AWS ECS Fargate          |\n| Load Balancer    | AWS Application Load Balancer     |\n| Registry         | AWS ECR                           |\n| CI/CD            | GitHub Actions                    |\n| Deployment       | AWS CodeDeploy (Blue/Green)       |\n| Monitoramento    | AWS CloudWatch                    |\n\n---\n\n## 🚀 Serviços e Endpoints\n\n### Auth Service — `/api/auth`\n\n| Método | Rota                | Autenticação | Descrição              |\n|--------|---------------------|--------------|------------------------|\n| GET    | `/health`           | Não          | Health check           |\n| POST   | `/api/auth/login`   | Não          | Login e geração de JWT |\n| POST   | `/api/auth/verify`  | Bearer Token | Verifica token JWT     |\n\n### User Service — `/api/users`\n\n| Método | Rota              | Autenticação | Descrição               |\n|--------|-------------------|--------------|-------------------------|\n| GET    | `/health`         | Não          | Health check            |\n| POST   | `/api/users`      | Não          | Criar usuário           |\n| GET    | `/api/users`      | Não          | Listar usuários         |\n| GET    | `/api/users/:id`  | Não          | Buscar usuário por ID   |\n| PUT    | `/api/users/:id`  | Não          | Atualizar usuário       |\n| DELETE | `/api/users/:id`  | Não          | Excluir usuário         |\n\n### Vehicle Service — `/api/vehicles`\n\n| Método | Rota                  | Autenticação | Descrição              |\n|--------|-----------------------|--------------|------------------------|\n| GET    | `/health`             | Não          | Health check           |\n| POST   | `/api/vehicles`       | Bearer Token | Criar veículo          |\n| GET    | `/api/vehicles`       | Bearer Token | Listar veículos        |\n| GET    | `/api/vehicles/:id`   | Bearer Token | Buscar veículo por ID  |\n| PUT    | `/api/vehicles/:id`   | Bearer Token | Atualizar veículo      |\n| DELETE | `/api/vehicles/:id`   | Bearer Token | Excluir veículo        |\n\n---\n\n## ⚡ Como Usar\n\n### 1. Login\n\n```bash\ncurl -X POST http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/login \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"email\":\"seu@email.com\",\"password\":\"suasenha\"}'\n```\n\n### 2. Usar o token nas requisições\n\n```bash\ncurl -X GET http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles \\\n  -H \"Authorization: Bearer SEU_TOKEN_AQUI\"\n```\n\n### 3. Criar um veículo\n\n```bash\ncurl -X POST http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles \\\n  -H \"Authorization: Bearer SEU_TOKEN_AQUI\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"brand\": \"Toyota\",\n    \"model\": \"Corolla\",\n    \"year\": 2024,\n    \"color\": \"Prata\",\n    \"plate\": \"ABC1D23\",\n    \"price\": 95000,\n    \"status\": \"disponível\"\n  }'\n```\n\n---\n\n## 🔄 Pipeline CI/CD\n\nO projeto utiliza GitHub Actions com três jobs encadeados:\n\n```\npush para main\n      │\n      ▼\n  ┌────────┐     ┌──────────────────┐     ┌─────────────────────┐\n  │  Test  │────▶│ Build & Push ECR │────▶│ Deploy (Blue/Green) │\n  └────────┘     └──────────────────┘     └─────────────────────┘\n```\n\n1. **Test** — Executa linter e testes unitários dos três serviços em paralelo\n2. **Build & Push** — Builda as imagens Docker e envia para o AWS ECR com tag do commit\n3. **Deploy** — Atualiza as Task Definitions no ECS e executa deploy Blue/Green via CodeDeploy com traffic shifting gradual\n\n---\n\n## 🗄️ Banco de Dados\n\nO banco MySQL está hospedado no AWS RDS com as seguintes tabelas principais:\n\n- `users` — Usuários do sistema com roles `admin` e `user`\n- `vehicles` — Cadastro de veículos com status `disponível`, `vendido` ou `manutenção`\n\n---\n\n## 🔒 Segurança\n\n- Senhas armazenadas com hash **bcrypt**\n- Autenticação via **JWT** com expiração configurável\n- Secrets gerenciados pelo **AWS Secrets Manager**\n- Security Groups restritivos — RDS acessível apenas pelo ECS\n- IAM roles com princípio de **least privilege**\n\n---\n\n## 📊 Monitoramento\n\nLogs centralizados no **AWS CloudWatch** com grupos por serviço:\n\n- `/ecs/auth-service`\n- `/ecs/user-service`\n- `/ecs/vehicle-service`\n\nAlarmes configurados para CPU > 80%, Memória > 80% e erros HTTP 5xx.\n\n---\n\n## 🏃 Executar Localmente\n\n```bash\n# Clonar o repositório\ngit clone https://github.com/seu-usuario/veiculos-api.git\ncd veiculos-api\n\n# Subir todos os serviços\ndocker-compose up -d\n\n# Verificar se estão rodando\ndocker-compose ps\n\n# Testar health checks\ncurl http://localhost:3001/health\ncurl http://localhost:3002/health\ncurl http://localhost:3003/health\n```\n\n---\n\n## 📁 Estrutura do Projeto\n\n```\nveiculos-api/\n├── services/\n│   ├── auth-service/\n│   ├── user-service/\n│   └── vehicle-service/\n├── infrastructure/\n│   ├── appspec.yml\n│   ├── auth-service-task-definition.json\n│   ├── user-service-task-definition.json\n│   └── vehicle-service-task-definition.json\n├── database/\n│   └── schema.sql\n├── .github/\n│   └── workflows/\n│       └── ci-cd.yml\n└── docker-compose.yml\n```\n\n---\n\n## 👥 Autores\n\n| Nome | Instituição |\n|------|-------------|\n| Artur Matos Siqueira | UFES — Campus Alegre/ES |\n| Erik Estevam | UFES — Campus Alegre/ES |\n\n**Disciplina:** Tópicos Especiais em Redes — 2025/2  \n**Professor:** —  \n**Universidade Federal do Espírito Santo**",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "52380215",
+    "_collection_link": "https://go.postman.co/collection/52380215-dc8f074d-fd81-4492-81b1-69b3064e6e83?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "CRIAR USUÁRIO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"name\": \"Teste Usuario Video\",\r\n    \"email\": \"teste3@veiculos.com\",\r\n    \"password\": \"senha12345\",\r\n    \"role\": \"user\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "users"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users \\\r\n  -H \"Content-Type: application/json\" \\\r\n  -d '{\"name\":\"Teste Usuario\",\"email\":\"teste@veiculos.com\",\"password\":\"senha123\",\"role\":\"user\"}'"
+      },
+      "response": []
+    },
+    {
+      "name": "AUTENTICAÇÃO - LOGIN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"teste3@veiculos.com\",\r\n    \"password\": \"senha12345\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/login \\\r\n  -H \"Content-Type: application/json\" \\\r\n  -d '{\"email\":\"artur@veiculos.com\",\"password\":\"password\"}'"
+      },
+      "response": [
+        {
+          "name": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/login",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"artur@veiculos.com\",\"password\":\"password\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/login",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:12:13 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "323"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"143-zJzP6gzCclwoGBXk+8ADvgK6aa0\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"message\": \"Login realizado com sucesso\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c\",\n    \"user\": {\n        \"id\": 5,\n        \"email\": \"artur@veiculos.com\",\n        \"name\": \"Artur\",\n        \"role\": \"admin\"\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "VALIDAR BAREAR TOKEN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OSwiZW1haWwiOiJ0ZXN0ZTNAdmVpY3Vsb3MuY29tIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3NzEzNjk3MDYsImV4cCI6MTc3MTQ1NjEwNn0.kAI6_91jiIw9zVBPr70wzdgzd8fb5rOzRnwUVbUrHjk"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/verify",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "verify"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/verify \\\r\n  -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c\" \\\r\n  -H \"Content-Type: application/json\" \\\r\n  -d '{}'"
+      },
+      "response": [
+        {
+          "name": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/verify",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/auth/verify",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:00:04 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "108"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"6c-zBDhq5AlvwobpOJhXSGblQWx4cI\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"valid\": true,\n    \"user\": {\n        \"id\": 5,\n        \"email\": \"artur@veiculos.com\",\n        \"role\": \"admin\",\n        \"iat\": 1771362733,\n        \"exp\": 1771449133\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "LISTAR USUÁRIOS",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users?page=1&limit=10",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl -X GET \"http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users?page=1&limit=10\""
+      },
+      "response": [
+        {
+          "name": "LISTAR USUÁRIOS",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users?page=1&limit=10",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:58:30 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "743"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"2e7-wP4BieULnFFxp6EWwsg4X6DtZP0\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"users\": [\n        {\n            \"id\": 7,\n            \"name\": \"Teste Login\",\n            \"email\": \"teste@veiculos.com\",\n            \"role\": \"user\",\n            \"created_at\": \"2026-02-17T22:36:45.000Z\"\n        },\n        {\n            \"id\": 6,\n            \"name\": \"João Silva\",\n            \"email\": \"joao@email.com\",\n            \"role\": \"user\",\n            \"created_at\": \"2026-02-17T22:28:49.000Z\"\n        },\n        {\n            \"id\": 5,\n            \"name\": \"Artur Atualizado\",\n            \"email\": \"artur@veiculos.com\",\n            \"role\": \"admin\",\n            \"created_at\": \"2026-02-17T21:11:15.000Z\"\n        },\n        {\n            \"id\": 4,\n            \"name\": \"Erik\",\n            \"email\": \"erik@veiculos.com\",\n            \"role\": \"admin\",\n            \"created_at\": \"2026-02-17T20:33:42.000Z\"\n        },\n        {\n            \"id\": 1,\n            \"name\": \"Administrador\",\n            \"email\": \"admin@veiculos.com\",\n            \"role\": \"admin\",\n            \"created_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 3,\n            \"name\": \"Maria Santos\",\n            \"email\": \"maria@veiculos.com\",\n            \"role\": \"user\",\n            \"created_at\": \"2026-02-09T14:04:35.000Z\"\n        }\n    ],\n    \"pagination\": {\n        \"page\": 1,\n        \"limit\": 10,\n        \"total\": 6,\n        \"pages\": 1\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "LISTAR USUÁRIO POR ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/9",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "users",
+            "9"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "GET USER POR ID",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/1",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "users",
+                "1"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:15:37 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "124"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"7c-PlK74JW2BQaJXsneS8fMkpAhA2A\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"user\": {\n        \"id\": 1,\n        \"name\": \"Administrador\",\n        \"email\": \"admin@veiculos.com\",\n        \"role\": \"admin\",\n        \"created_at\": \"2026-02-09T14:04:35.000Z\"\n    }\n}"
+        },
+        {
+          "name": "GET USER POR ID",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/5",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "users",
+                "5"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:15:45 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "116"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"74-XzxoGFfAiBfYHZw4W6OupyD0fWg\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"user\": {\n        \"id\": 5,\n        \"name\": \"Artur\",\n        \"email\": \"artur@veiculos.com\",\n        \"role\": \"admin\",\n        \"created_at\": \"2026-02-17T21:11:15.000Z\"\n    }\n}"
+        },
+        {
+          "name": "GET USER POR ID",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/4",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "users",
+                "4"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:15:52 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "114"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"72-IvcGiD9YSTlRgeZ77utjO7iEvUg\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"user\": {\n        \"id\": 4,\n        \"name\": \"Erik\",\n        \"email\": \"erik@veiculos.com\",\n        \"role\": \"admin\",\n        \"created_at\": \"2026-02-17T20:33:42.000Z\"\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "ATUALIZAR USUÁRIO",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"name\": \"Teste Usuario Video Atualizado\",\r\n    \"email\": \"teste3@veiculos.com\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/9",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "users",
+            "9"
+          ]
+        },
+        "description": "Generated from cURL: curl -X PUT http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/5 \\\r\n  -H \"Content-Type: application/json\" \\\r\n  -d '{\"name\":\"Artur Atualizado\",\"email\":\"artur@veiculos.com\"}'"
+      },
+      "response": [
+        {
+          "name": "ATUALIZAR USUÁRIO",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Artur Atualizado\",\"email\":\"artur@veiculos.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/5",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "users",
+                "5"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:12:57 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "45"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"2d-/W8207NXHCFT7AZnamNdVTziLQk\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"message\": \"Usuário atualizado com sucesso\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "DELETAR USUÁRIO",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/9",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "users",
+            "9"
+          ]
+        },
+        "description": "Generated from cURL: curl -X DELETE http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/99"
+      },
+      "response": [
+        {
+          "name": "DELETAR USUÁRIO",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/users/2",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "users",
+                "2"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:14:26 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "44"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"2c-XkYAe5qvx7IiBdU5kqbntUITVi8\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"message\": \"Usuário excluído com sucesso\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "CRIAR VEICULOS",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"brand\": \"Maseratti\",\r\n    \"model\": \"V8\",\r\n    \"year\": 2026,\r\n    \"color\": \"Prata\",\r\n    \"plate\": \"ABC1D24\",\r\n    \"price\": 95000.00,\r\n    \"status\": \"disponível\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "vehicles"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles \\\r\n  -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c\" \\\r\n  -H \"Content-Type: application/json\" \\\r\n  -d '{\"brand\":\"Toyota\",\"model\":\"Corolla\",\"year\":2023,\"color\":\"Prata\",\"plate\":\"ABC1D23\",\"price\":95000.00,\"status\":\"disponível\"}'"
+      },
+      "response": []
+    },
+    {
+      "name": "LISTAR VEICULOS",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+          }
+        ],
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles?page=1&limit=15",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "vehicles"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "15"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl -X GET \"http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles?page=1&limit=10\" \\\r\n  -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c\""
+      },
+      "response": [
+        {
+          "name": "LISTAR VEICULOS",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              }
+            ],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles?page=1&limit=10",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:58:49 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "2338"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"922-9oCVBv09Hu4iECn/tUJSRFtFe7c\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"vehicles\": [\n        {\n            \"id\": 15,\n            \"brand\": \"Hyundai\",\n            \"model\": \"Creta\",\n            \"year\": 2022,\n            \"color\": \"Azul\",\n            \"plate\": \"QRS3T45\",\n            \"price\": \"118000.00\",\n            \"status\": \"manutenção\",\n            \"created_by\": null,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 14,\n            \"brand\": \"Chevrolet\",\n            \"model\": \"Tracker\",\n            \"year\": 2023,\n            \"color\": \"Prata\",\n            \"plate\": \"NOP0Q12\",\n            \"price\": \"128000.00\",\n            \"status\": \"manutenção\",\n            \"created_by\": 1,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 12,\n            \"brand\": \"Honda\",\n            \"model\": \"HR-V\",\n            \"year\": 2021,\n            \"color\": \"Preto\",\n            \"plate\": \"HIJ4K56\",\n            \"price\": \"95000.00\",\n            \"status\": \"vendido\",\n            \"created_by\": 1,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 11,\n            \"brand\": \"Toyota\",\n            \"model\": \"Hilux\",\n            \"year\": 2022,\n            \"color\": \"Cinza\",\n            \"plate\": \"EFG1H23\",\n            \"price\": \"185000.00\",\n            \"status\": \"vendido\",\n            \"created_by\": 1,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 10,\n            \"brand\": \"Jeep\",\n            \"model\": \"Renegade\",\n            \"year\": 2023,\n            \"color\": \"Branco\",\n            \"plate\": \"BCD8E90\",\n            \"price\": \"115000.00\",\n            \"status\": \"disponível\",\n            \"created_by\": 1,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 9,\n            \"brand\": \"Ford\",\n            \"model\": \"Ka\",\n            \"year\": 2022,\n            \"color\": \"Vermelho\",\n            \"plate\": \"YZA5B67\",\n            \"price\": \"58000.00\",\n            \"status\": \"disponível\",\n            \"created_by\": 1,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 8,\n            \"brand\": \"Renault\",\n            \"model\": \"Sandero\",\n            \"year\": 2023,\n            \"color\": \"Prata\",\n            \"plate\": \"VWX2Y34\",\n            \"price\": \"65000.00\",\n            \"status\": \"disponível\",\n            \"created_by\": 1,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 7,\n            \"brand\": \"Nissan\",\n            \"model\": \"Kicks\",\n            \"year\": 2022,\n            \"color\": \"Preto\",\n            \"plate\": \"STU9V01\",\n            \"price\": \"92000.00\",\n            \"status\": \"disponível\",\n            \"created_by\": null,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 6,\n            \"brand\": \"Fiat\",\n            \"model\": \"Argo\",\n            \"year\": 2023,\n            \"color\": \"Branco\",\n            \"plate\": \"PQR6S78\",\n            \"price\": \"70000.00\",\n            \"status\": \"disponível\",\n            \"created_by\": null,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        },\n        {\n            \"id\": 5,\n            \"brand\": \"Hyundai\",\n            \"model\": \"HB20\",\n            \"year\": 2022,\n            \"color\": \"Azul\",\n            \"plate\": \"MNO3P45\",\n            \"price\": \"62000.00\",\n            \"status\": \"disponível\",\n            \"created_by\": null,\n            \"created_at\": \"2026-02-09T14:04:35.000Z\",\n            \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n        }\n    ],\n    \"pagination\": {\n        \"page\": 1,\n        \"limit\": 10,\n        \"total\": 14,\n        \"pages\": 2\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "LISTAR VEICULOS POR ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+          }
+        ],
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/16",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "vehicles",
+            "16"
+          ]
+        },
+        "description": "Generated from cURL: curl -X GET http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles \\\n  -H \"Authorization: Bearer SEU_TOKEN_AQUI\""
+      },
+      "response": [
+        {
+          "name": "GET VEICULOS POR ID",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              }
+            ],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/1",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "vehicles",
+                "1"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:13:08 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "238"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"ee-PJjbQcaxggIeduHKgLtDLYnbjuw\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"vehicle\": {\n        \"id\": 1,\n        \"brand\": \"Toyota\",\n        \"model\": \"Corolla\",\n        \"year\": 2023,\n        \"color\": \"Prata\",\n        \"plate\": \"ABC1D23\",\n        \"price\": \"95000.00\",\n        \"status\": \"disponível\",\n        \"created_by\": 1,\n        \"created_at\": \"2026-02-09T14:04:35.000Z\",\n        \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n    }\n}"
+        },
+        {
+          "name": "GET VEICULOS POR ID",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              }
+            ],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/2",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "vehicles",
+                "2"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:13:36 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "description": "",
+              "type": "text"
+            },
+            {
+              "key": "Content-Length",
+              "value": "236"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"ec-GzTlKDkig/pQzpB824KakwoBjdA\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"vehicle\": {\n        \"id\": 2,\n        \"brand\": \"Honda\",\n        \"model\": \"Civic\",\n        \"year\": 2023,\n        \"color\": \"Preto\",\n        \"plate\": \"DEF4G56\",\n        \"price\": \"105000.00\",\n        \"status\": \"disponível\",\n        \"created_by\": 1,\n        \"created_at\": \"2026-02-09T14:04:35.000Z\",\n        \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n    }\n}"
+        },
+        {
+          "name": "GET VEICULOS POR ID",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              }
+            ],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "",
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 21:14:05 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "240"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"f0-AoP5StDzV5l0lPxSU0+0mbylga0\""
+            }
+          ],
+          "cookie": [
+            {
+              "expires": "Invalid Date",
+              "domain": "",
+              "path": ""
+            }
+          ],
+          "body": "{\n    \"vehicle\": {\n        \"id\": 3,\n        \"brand\": \"Volkswagen\",\n        \"model\": \"Golf\",\n        \"year\": 2022,\n        \"color\": \"Branco\",\n        \"plate\": \"GHI7J89\",\n        \"price\": \"85000.00\",\n        \"status\": \"disponível\",\n        \"created_by\": 1,\n        \"created_at\": \"2026-02-09T14:04:35.000Z\",\n        \"updated_at\": \"2026-02-09T14:04:35.000Z\"\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "ATUALIZAR VEICULOS",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"brand\": \"Maseratti\",\r\n    \"model\": \"V8\",\r\n    \"year\": 2026,\r\n    \"color\": \"Azul\",\r\n    \"plate\": \"ABC1D24\",\r\n    \"price\": 98000.00,\r\n    \"status\": \"vendido\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/16",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "vehicles",
+            "16"
+          ]
+        },
+        "description": "Generated from cURL: curl -X PUT http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/1 \\\r\n  -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c\" \\\r\n  -H \"Content-Type: application/json\" \\\r\n  -d '{\"brand\":\"Toyota\",\"model\":\"Corolla\",\"year\":2024,\"color\":\"Preto\",\"plate\":\"ABC1D23\",\"price\":98000.00,\"status\":\"vendido\"}'"
+      },
+      "response": [
+        {
+          "name": "ATUALIZAR VEICULOS",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"brand\":\"Toyota\",\"model\":\"Corolla\",\"year\":2024,\"color\":\"Preto\",\"plate\":\"ABC1D23\",\"price\":98000.00,\"status\":\"vendido\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/1",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "vehicles",
+                "1"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:13:15 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "45"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"2d-JvDGx8BcE28UQXLg3/Pg++SXlMg\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"message\": \"Veículo atualizado com sucesso\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "DELETAR VEICULOS",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+          }
+        ],
+        "url": {
+          "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/16",
+          "protocol": "http",
+          "host": [
+            "veiculos-alb-1142325911",
+            "us-east-1",
+            "elb",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            "api",
+            "vehicles",
+            "16"
+          ]
+        },
+        "description": "Generated from cURL: curl -X DELETE http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/1 \\\r\n  -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c\""
+      },
+      "response": [
+        {
+          "name": "DELETAR VEICULOS",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJhcnR1ckB2ZWljdWxvcy5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzEzNjI3MzMsImV4cCI6MTc3MTQ0OTEzM30.XjUxho2NrlaCpDgclwztw1Q7BBSofVGDbBVhFs_4i8c"
+              }
+            ],
+            "url": {
+              "raw": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com/api/vehicles/13",
+              "protocol": "http",
+              "host": [
+                "veiculos-alb-1142325911",
+                "us-east-1",
+                "elb",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "api",
+                "vehicles",
+                "13"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Tue, 17 Feb 2026 22:14:00 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Content-Length",
+              "value": "44"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Cross-Origin-Resource-Policy",
+              "value": "same-origin"
+            },
+            {
+              "key": "Origin-Agent-Cluster",
+              "value": "?1"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=31536000; includeSubDomains"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-DNS-Prefetch-Control",
+              "value": "off"
+            },
+            {
+              "key": "X-Download-Options",
+              "value": "noopen"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "SAMEORIGIN"
+            },
+            {
+              "key": "X-Permitted-Cross-Domain-Policies",
+              "value": "none"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "ETag",
+              "value": "W/\"2c-SkKGjcKWVEgdI6YpOEQcxpAE1QU\""
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"message\": \"Veículo excluído com sucesso\"\n}"
+        }
+      ]
+    }
+  ]
+}
