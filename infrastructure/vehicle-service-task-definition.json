@@ -1,0 +1,58 @@
+{
+    "family": "vehicle-service-task",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "512",
+    "memory": "1024",
+    "containerDefinitions": [
+      {
+        "name": "vehicle-service",
+        "image": "<IMAGE_URI>",
+        "portMappings": [
+          {
+            "containerPort": 3003,
+            "protocol": "tcp"
+          }
+        ],
+        "environment": [
+          {
+            "name": "PORT",
+            "value": "3003"
+          },
+          {
+            "name": "DB_HOST",
+            "value": "veiculos-db.cg9keia66rox.us-east-1.rds.amazonaws.com"
+          },
+          {
+            "name": "DB_NAME",
+            "value": "veiculos_db"
+          },
+          {
+            "name": "DB_USER",
+            "value": "admin"
+          },
+          { "name": "AUTH_SERVICE_URL", 
+            "value": "http://veiculos-alb-1142325911.us-east-1.elb.amazonaws.com" 
+          }
+        ],
+        "secrets": [
+          {
+            "name": "DB_PASSWORD",
+            "valueFrom": "arn:aws:secretsmanager:us-east-1:442426892384:secret:DB_PASSWORD-1yQbvr"
+          },
+          {
+            "name": "JWT_SECRET",
+            "valueFrom": "arn:aws:secretsmanager:us-east-1:442426892384:secret:JWT_SECRET-OoIUhe"
+          }
+        ],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/vehicle-service",
+            "awslogs-region": "us-east-1",
+            "awslogs-stream-prefix": "ecs"
+          }
+        }
+      }
+    ]
+  }

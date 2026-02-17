@@ -1,0 +1,55 @@
+{
+    "family": "user-service-task",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "512",
+    "memory": "1024",
+    "containerDefinitions": [
+      {
+        "name": "user-service",
+        "image": "<IMAGE_URI>",
+        "portMappings": [
+          {
+            "containerPort": 3002,
+            "protocol": "tcp"
+          }
+        ],
+        "environment": [
+          {
+            "name": "PORT",
+            "value": "3002"
+          },
+          {
+            "name": "DB_HOST",
+            "value": "veiculos-db.cg9keia66rox.us-east-1.rds.amazonaws.com"
+          },
+          {
+            "name": "DB_NAME",
+            "value": "veiculos_db"
+          },
+          {
+            "name": "DB_USER",
+            "value": "admin"
+          }
+        ],
+        "secrets": [
+          {
+            "name": "DB_PASSWORD",
+            "valueFrom": "arn:aws:secretsmanager:us-east-1:442426892384:secret:DB_PASSWORD-1yQbvr"
+          },
+          {
+            "name": "JWT_SECRET",
+            "valueFrom": "arn:aws:secretsmanager:us-east-1:442426892384:secret:JWT_SECRET-OoIUhe"
+          }
+        ],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/user-service",
+            "awslogs-region": "us-east-1",
+            "awslogs-stream-prefix": "ecs"
+          }
+        }
+      }
+    ]
+  }
