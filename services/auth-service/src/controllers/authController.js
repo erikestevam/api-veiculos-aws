@@ -62,7 +62,7 @@ exports.verifyToken = async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     res.json({ valid: true, user: decoded });
-  } catch (error) {
+  } catch {
     res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 };

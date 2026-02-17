@@ -22,7 +22,7 @@ app.get('/health', (req, res) => {
 app.use('/api/vehicles', vehicleRoutes);
 
 // Error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Algo deu errado!' });
 });

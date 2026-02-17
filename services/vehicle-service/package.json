@@ -9,7 +9,11 @@
     "test": "jest --coverage",
     "lint": "eslint src/**/*.js"
   },
-  "keywords": ["vehicles", "crud", "microservice"],
+  "keywords": [
+    "vehicles",
+    "crud",
+    "microservice"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -34,7 +38,9 @@
     "mysql2": "^3.16.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "eslint": "^10.0.0",
+    "globals": "^17.3.0",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",
     "supertest": "^7.2.2"
