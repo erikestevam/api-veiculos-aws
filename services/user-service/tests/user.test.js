@@ -1,4 +1,20 @@
 const request = require('supertest');
+
+// Mock do banco de dados para CI (sem MySQL)
+jest.mock('../src/config/database', () => {
+  const mockQuery = jest.fn((sql, params) => {
+    if (typeof sql === 'string') {
+      if (sql.includes('COUNT(*)')) return Promise.resolve([[{ total: 0 }], []]);
+      if (sql.includes('LIMIT')) return Promise.resolve([[], []]);
+      if (sql.includes('DELETE FROM')) return Promise.resolve([{ affectedRows: params && params[0] === '99999' ? 0 : 1 }, []]);
+      if (sql.includes('WHERE id = ?') && params && params[0] === '99999') return Promise.resolve([[], []]);
+      if (sql.includes('SELECT id FROM users WHERE id = ?') && params && params[0] === '99999') return Promise.resolve([[], []]);
+    }
+    return Promise.resolve([[], []]);
+  });
+  return { query: mockQuery };
+});
+
 const app = require('../src/server');
 
 describe('User Service', () => {
