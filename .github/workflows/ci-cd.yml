@@ -118,6 +118,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ matrix.service }}
+          service: ${{ matrix.service }}-1
           cluster: veiculos-cluster
           wait-for-service-stability: true
