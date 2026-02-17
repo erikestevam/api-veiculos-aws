@@ -1,5 +1,6 @@
 {
     "family": "vehicle-service-task",
+    "executionRoleArn": "arn:aws:iam::442426892384:role/ECSSecretsManager",
     "networkMode": "awsvpc",
     "requiresCompatibilities": ["FARGATE"],
     "cpu": "512",
